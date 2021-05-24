@@ -1,100 +1,103 @@
 //--------//====================================//--------//
-// Programa con comunicacion duplex entre serial y arduino
-// Alvaro Gabriel Gonzalez Martinez
-// Version 2.0 - Arduino 24/5/2021
+// A duplex comunication between Arduino and Raspberry py //
+// Autor: Alvaro Gabriel Gonzalez Martinez                //
+// Version 2.0 - Arduino 24/5/2021                        //
 //--------//====================================//--------//
+// Requirenments
 #include <stdio.h>      /* printf, fgets */
 #include <stdlib.h>     /* atol */
-const int Cdatos = 2, Cdata = 2, Ctotal = Cdatos + Cdata; // Cantidad de datos a enviar
-const int End = 10;
-float Var[Ctotal];  // Inicializa arreglo (lista) llamada Var con n elementos
-/* |==|  Sensores  |==| */
+/* Here  you  need  to  put the length of the number */
+/* of arduino sensors you will use and the amount of */
+/* incoming data. */
+const int Cdatos = 2, Cdata = 2, Ctotal = Cdatos + Cdata;
+const int End = 10; /* A constant to specify a line break */
+float Data[Ctotal]; /* Our Data inicialized by Ctotal.    */
+/* |==|  Arduino output and input devices |==| */
+/* |==|   Ultrasonic sensors  |==| */
 const int Su[3][2] = {{9, 10}, {12, 11}};
-void setup() {
-  Serial.begin(115200);
-  //establishContact();
+/* |==|         Motors        |==| */
+const int Mo[2][3] = {{4, 3, 5}, {2, 13, 6}};
 
-  /* Configuracion de  pins  de  sensores  ultrasonicos */
+/* [INIT] */ /* |==| Arduino configuration |==| */
+void setup() {
+  /* |==| Ultrasonic configuration |==| */
+  Serial.begin(115200);
+
+  /*  Output motors configuration */
+  for (int i = 0; i < 2; i++)
+    for (int j = 0; j < 3; j++)
+      pinMode(Mo[i][j], OUTPUT);
+
+  /* |==| Ultrasonic configuration |==| */
   for (int i = 0; i < 2; i++)
   {
-    pinMode(Su[i][0], OUTPUT); /* Trigger como salida */
-    pinMode(Su[i][1], INPUT);  /*  Echo como  entrada */
+    pinMode(Su[i][0], OUTPUT); /* Trigger */
+    pinMode(Su[i][1], INPUT);  /*  Echo   */
   }
 }
-//-----/ Procedimiento que inicializa la comunicacion Serial/-----//
-void establishContact() {
-  while (Serial.available() <= 0) {
-    Serial.println("1,2,3"); // Envia datos de prueba
-    delay(200);
-  }
-}
-
-//--------/ Fin procedimiento establecer contacto /--------//
+/* [F] */ //--------/  A  distance  reader  function   /--------//
+// The sensor to be read must be sent as a parameter. //
 float Distancia(int SuN)
 {
-  /* Variable local para calculos */
-  long Duration;
+  /* Local variables */
+  long Duracion;
   int Distancia;
-  /* Limpieza de Trigger */
+  /* Clean up Trigger */
   digitalWrite(Su[SuN][0], 0);
   delayMicroseconds(2);
-  /* Encendido de Trigger 10 segundos */
+  /* Triggering  */
   digitalWrite(Su[SuN][0], 1);
   delayMicroseconds(10);
   digitalWrite(Su[SuN][0], 0);
-  /* Lectura del Echo del sesor */
-  Duration = pulseIn(Su[SuN][1], 1);
-  /* Calculos para la distancia */
-  Distancia = Duration * 0.034 / 2;
+  /* Reading the echo */
+  Duracion = pulseIn(Su[SuN][1], 1);
+  /* We calculate the distance */
+  Distancia = Duracion * 0.034 / 2;
   return (Distancia);
 }
 
-//--------/ Inicia procedimiento de envio de datos /-------//
-void sendData() {
-  readSensors();//----------------------------// Llamada al procedimiento leerDatos
-
-  //-----// Separacion de datos /-----//
-  for (int i = 0; i < Ctotal; i++) {
-    Serial.print(String(Var[i]) + ',');     // Uso de coma para separar (',')
-  }
-  Serial.println();                   // Fin envio de linea de datos
-  //-----// Fin arreglo de separacion /-----//
+/* [M] */ //--------/ Our sensor reader method /--------//
+void readSensors() {
+  Data[0] = Distancia(0);    // Distancia
+  Data[1] = Distancia(1);    // Distancia
 }
-//--------/ Fin procedimiento de envio de datos /-------//
+/* [M] */ //--------/ Data send method /-------//
+void sendData() {
+  readSensors();// Reading the sensors
 
-//--------/ Inicia procedimiento de recepcion de datos /-------//
+  //-----// Sending data /-----//
+  for (int i = 0; i < Ctotal; i++) {
+    Serial.print(String(Data[i]) + ',');
+  }
+  Serial.println(); // A line break
+}
+/* [M] */ //--------/ A reader data method /-------//
 void readData() {
   if (Serial.available() > 0) {
     String Message = Serial.readStringUntil(End);
+    // To read our data we call the method splitData
+    // This allow to change our data from String to float
+    // and put into our Data array.
     splitData(Message + " ");
   }
 }
+/* [M] */ //--------/ A Split method /-------//
 void splitData(String Message ) {
   char Msg[Message.length() + 1];
+  // A new array to split the data.
   Message.toCharArray(Msg, Message.length());
   char* ptr = strtok(Msg, ",");
+  // Our index
   byte i = 0;
   while (ptr) {
-    Var[i + Cdatos] = atol(ptr);
+    // We convert from char to numeric value
+    Data[i + Cdatos] = atol(ptr);
     ptr = strtok(NULL, ",");
     i++;
   }
 }
-//--------/ Fin procedimiento de envio de datos /-------//
-
-//--------/ Inicia procedimiento de lectura de datos/--------//
-void readSensors() {
-  Var[0] = Distancia(0);    // Distancia
-  Var[1] = Distancia(1);    // Distancia
-  //Var[i]=lectura de sensor; // Ejemplo de asignacion de mas lecturas
-}
-//--------/ Fin procedimiento de lectura de sensores/--------//
-
-
+//--------/  Loop  /--------//
 void loop() {
   readData();
-  sendData();      // Llamada a procedimiento envia
-  delay(500);
-  if (Var[2] == 1)
-    Serial.println("Algo prendio");
+  sendData();
 }
