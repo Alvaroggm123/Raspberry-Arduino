@@ -16,7 +16,7 @@ float Data[Ctotal]; /* Our Data inicialized by Ctotal.    */
 /* |==|   Ultrasonic sensors  |==| */
 const int Su[3][2] = {{9, 10}, {12, 11}};
 /* |==|         Motors        |==| */
-const int Mo[2][3] = {{4, 3, 5}, {2, 13, 6}};
+const int Mo[2][3] = {{8, 7, 6}, {3, 4, 5}};
 
 /* [INIT] */ /* |==| Arduino configuration |==| */
 void setup() {
@@ -96,8 +96,48 @@ void splitData(String Message ) {
     i++;
   }
 }
+/* [M] */ //--------/ Turning off motors method /-------//
+void motorsOff() {
+  for (int i = 0; i < 2; i++)
+    for (int j = 0; j < 2; j++)
+      digitalWrite(Mo[i][j], 0);
+}
+/* [M] */ //--------/ Motor control method /-------//
+/* Parameters */
+/* MotorDirecction(leftDirection, rightDirecction) using max power or     */
+/* MotorDirecction(leftDirection, rightDirecction, leftPower, rigthPower) */
+void motorDirecction(int I, int D) {
+  motorsOff();
+  digitalWrite(Mo[0][I], 1);
+  digitalWrite(Mo[1][D], 1);
+  analogWrite(Mo[0][2], 255);
+  analogWrite(Mo[1][2], 255);
+}
+void motorDirecction(int I, int D, int Ipow, int Dpow) {
+  motorsOff();
+  digitalWrite(Mo[0][I], 1);
+  digitalWrite(Mo[1][D], 1);
+  analogWrite(Mo[0][2], map(Ipow, 0, 100, 100, 255));
+  analogWrite(Mo[1][2], map(Dpow, 0, 100, 100, 255));
+}
 //--------/  Loop  /--------//
 void loop() {
   readData();
   sendData();
+  // Test our callouts
+  int dataInSerial = 0;
+  if (Data[Cdatos + dataInSerial ] == 8) {
+    motorDirecction(0, 0, 100, 100);
+  }
+  else if (Data[Cdatos + dataInSerial ] == 5) {
+    motorDirecction(1, 1, 100, 100);
+  }
+  else if (Data[Cdatos + dataInSerial ] == 4) {
+    motorDirecction(0, 1, 100, 100);
+  }
+  else if (Data[Cdatos + dataInSerial ] == 6) {
+    motorDirecction(1, 0, 100, 100);
+  }
+  else
+    motorsOff();
 }
