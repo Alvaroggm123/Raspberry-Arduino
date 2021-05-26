@@ -1,7 +1,7 @@
 //--------//====================================//--------//
 // A duplex comunication between Arduino and Raspberry py //
 // Autor: Alvaro Gabriel Gonzalez Martinez                //
-// Version 2.0 - Arduino 24/5/2021                        //
+// Version 2.0 - Arduino 25/5/2021                        //
 //--------//====================================//--------//
 // Requirenments
 #include <stdio.h>      /* printf, fgets */
@@ -120,24 +120,44 @@ void motorDirecction(int I, int D, int Ipow, int Dpow) {
   analogWrite(Mo[0][2], map(Ipow, 0, 100, 100, 255));
   analogWrite(Mo[1][2], map(Dpow, 0, 100, 100, 255));
 }
+void antiCollision() {
+  if (Distancia(0) < 20)
+    motorDirecction(0, 1);
+  else if (Distancia(1) < 20)
+    motorDirecction(1, 0);
+  else
+    motorDirecction(0, 0, 70, 70);
+}
 //--------/  Loop  /--------//
 void loop() {
   readData();
   sendData();
   // Test our callouts
   int dataInSerial = 0;
-  if (Data[Cdatos + dataInSerial ] == 8) {
-    motorDirecction(0, 0, 100, 100);
+  switch (int(Data[Cdatos + dataInSerial ])) {
+    // Case using sensors to detect objects and try to
+    case 1:
+      antiCollision();
+      break;
+    case 5:
+      motorDirecction(0, 0, 100, 100);
+      break;
+    case 8:
+      motorDirecction(1, 1, 100, 100);
+      break;
+    case 4:
+      motorDirecction(0, 1, 100, 100);
+      break;
+    case 6:
+      motorDirecction(1, 0, 100, 100);
+      break;
+    default:
+      motorsOff();
+      break;
   }
-  else if (Data[Cdatos + dataInSerial ] == 5) {
-    motorDirecction(1, 1, 100, 100);
+  // if we try to move in any direction just be able to do it 100us
+  if (int(Data[Cdatos + dataInSerial ]) > 3 && int(Data[Cdatos + dataInSerial ] < 10)) {
+    delay(100);
+    Data[Cdatos + dataInSerial ] = 0;
   }
-  else if (Data[Cdatos + dataInSerial ] == 4) {
-    motorDirecction(0, 1, 100, 100);
-  }
-  else if (Data[Cdatos + dataInSerial ] == 6) {
-    motorDirecction(1, 0, 100, 100);
-  }
-  else
-    motorsOff();
 }
