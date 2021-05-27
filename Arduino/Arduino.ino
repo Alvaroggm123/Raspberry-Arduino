@@ -1,7 +1,7 @@
 //--------//====================================//--------//
 // A duplex comunication between Arduino and Raspberry py //
 // Autor: Alvaro Gabriel Gonzalez Martinez                //
-// Version 2.0 - Arduino 25/5/2021                        //
+// Version 2.0 - Arduino 27/5/2021                        //
 //--------//====================================//--------//
 // Requirenments
 #include <stdio.h>      /* printf, fgets */
@@ -9,8 +9,8 @@
 /* Here  you  need  to  put the length of the number */
 /* of arduino sensors you will use and the amount of */
 /* incoming data. */
-const int Cdatos = 2, Cdata = 2, Ctotal = Cdatos + Cdata;
-const int End = 10; /* A constant to specify a line break */
+const int Cdatos = 3, Cdata = 2, Ctotal = Cdatos + Cdata;
+const int End = 10, battLED = 13; /* A constant to specify a line break */
 float Data[Ctotal]; /* Our Data inicialized by Ctotal.    */
 /* |==|  Arduino output and input devices |==| */
 /* |==|   Ultrasonic sensors  |==| */
@@ -22,6 +22,9 @@ const int Mo[2][3] = {{8, 7, 6}, {3, 4, 5}};
 void setup() {
   /* |==| Ultrasonic configuration |==| */
   Serial.begin(115200);
+
+  /* Config. battLED */
+  pinMode(battLED, OUTPUT);
 
   /*  Output motors configuration */
   for (int i = 0; i < 2; i++)
@@ -60,6 +63,7 @@ float Distancia(int SuN)
 void readSensors() {
   Data[0] = Distancia(0);    // Distancia
   Data[1] = Distancia(1);    // Distancia
+  Data[2] = map(analogRead(A0), 0, 491, 0, 100); // Distancia
 }
 /* [M] */ //--------/ Data send method /-------//
 void sendData() {
@@ -110,8 +114,8 @@ void motorDirecction(int I, int D) {
   motorsOff();
   digitalWrite(Mo[0][I], 1);
   digitalWrite(Mo[1][D], 1);
-  analogWrite(Mo[0][2], 255);
-  analogWrite(Mo[1][2], 255);
+  analogWrite(Mo[0][2], map(Data[Cdatos + 1], 0, 100, 0, 255));
+  analogWrite(Mo[1][2], map(Data[Cdatos + 1], 0, 100, 0, 255));
 }
 void motorDirecction(int I, int D, int Ipow, int Dpow) {
   motorsOff();
@@ -122,16 +126,29 @@ void motorDirecction(int I, int D, int Ipow, int Dpow) {
 }
 void antiCollision() {
   if (Distancia(0) < 20)
-    motorDirecction(0, 1);
-  else if (Distancia(1) < 20)
     motorDirecction(1, 0);
+  else if (Distancia(1) < 20)
+    motorDirecction(0, 1);
   else
-    motorDirecction(0, 0, 70, 70);
+    motorDirecction(1, 1, 70, 70);
+}
+/*  */
+void battState() {
+  // The intensity of the led depends on the load
+  analogWrite(battLED, map(Data[2], 0, 110, 0, 200));
+  // We check if the battery is at least 80% charge
+  if (Data[2] > 98)
+    Data[Cdatos + 1] = 30 + (100 - Data[2]) * 1;
+  else if (Data[2] > 90)
+    Data[Cdatos + 1] = 30 + (100 - Data[2]) * 2;
+  else
+    Data[Cdatos + 1] = 100;
 }
 //--------/  Loop  /--------//
 void loop() {
   readData();
   sendData();
+  battState();
   // Test our callouts
   int dataInSerial = 0;
   switch (int(Data[Cdatos + dataInSerial ])) {
@@ -140,16 +157,16 @@ void loop() {
       antiCollision();
       break;
     case 5:
-      motorDirecction(0, 0, 100, 100);
+      motorDirecction(0, 0, Data[Cdatos + 1 ] + 2, Data[Cdatos + 1] + 2);
       break;
     case 8:
-      motorDirecction(1, 1, 100, 100);
+      motorDirecction(1, 1, Data[Cdatos + 1], Data[Cdatos + 1]);
       break;
     case 4:
-      motorDirecction(0, 1, 100, 100);
+      motorDirecction(0, 1, Data[Cdatos + 1], Data[Cdatos + 1]);
       break;
     case 6:
-      motorDirecction(1, 0, 100, 100);
+      motorDirecction(1, 0, Data[Cdatos + 1], Data[Cdatos + 1]);
       break;
     default:
       motorsOff();
@@ -157,7 +174,7 @@ void loop() {
   }
   // if we try to move in any direction just be able to do it 100us
   if (int(Data[Cdatos + dataInSerial ]) > 3 && int(Data[Cdatos + dataInSerial ] < 10)) {
-    delay(100);
+    delay(700);
     Data[Cdatos + dataInSerial ] = 0;
   }
 }
