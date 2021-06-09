@@ -16,13 +16,15 @@ float Data[Ctotal]; /* Our Data inicialized by Ctotal.    */
 /* |==|   Ultrasonic sensors  |==| */
 const int Su[3][2] = {{9, 10}, {12, 11}};
 /* |==|         Motors        |==| */
-const int Mo[2][3] = {{8, 7, 6}, {3, 4, 5}};
+const int Mo[2][3] = {{7, 8, 6}, {4, 3, 5}};
+bool flag = true;
+int Pot[] = {60, 60};
 /* |==|   PID variables  |==| */
 int maximumRange = 200; // maximo rango
 int minimumRange = 0; // Minimo rango
 float duration, distance, actual, sp = 20, error;
 float previous_error, drive, derivative = 0, integral = 0, kp = 0.28;
-float kd = 0.1, ki = 0.00001, salida, x, bandera = 0;
+float kd = 0.01, ki = 0.0001, salida, x, bandera = 0;
 
 /* [INIT] */ /* |==| Arduino configuration |==| */
 void setup() {
@@ -121,30 +123,48 @@ void motorDirecction(int I, int D) {
   motorsOff();
   digitalWrite(Mo[0][I], 1);
   digitalWrite(Mo[1][D], 1);
-  analogWrite(Mo[0][2], map(Data[Cdatos + 1], 0, 100, 0, 255));
-  analogWrite(Mo[1][2], map(Data[Cdatos + 1], 0, 100, 0, 255));
+  analogWrite(Mo[0][2], map(Data[Cdatos + 1], 0, 0, 0, 255));
+  analogWrite(Mo[1][2], map(Data[Cdatos + 1], 0, 0, 0, 255));
 }
 void motorDirecction(int I, int D, int Ipow, int Dpow) {
   motorsOff();
   digitalWrite(Mo[0][I], 1);
   digitalWrite(Mo[1][D], 1);
-  analogWrite(Mo[0][2], map(Ipow, 0, 100, 100, 255));
-  analogWrite(Mo[1][2], map(Dpow, 0, 100, 100, 255));
+  analogWrite(Mo[0][2], map(Ipow, 0, 100, 0, 150));
+  analogWrite(Mo[1][2], map(Dpow, 0, 100, 0, 150));
 }
 void motorDirecction(int I, int D, int Pow) {
   motorsOff();
   digitalWrite(Mo[0][I], 1);
   digitalWrite(Mo[1][D], 1);
-  analogWrite(Mo[0][2], map(Pow, 0, 100, 100, 255));
-  analogWrite(Mo[1][2], map(Pow, 0, 100, 100, 255));
+  analogWrite(Mo[0][2], map(Pow, 0, 100, 0, 255));
+  analogWrite(Mo[1][2], map(Pow, 0, 100, 0, 255));
 }
 void antiCollision() {
-  if (Distancia(0) < 20)
-    motorDirecction(1, 0);
-  else if (Distancia(1) < 20)
-    motorDirecction(0, 1);
-  else
-    motorDirecction(1, 1, 70, 70);
+  if (Data[0] > 15 && Data[0] < 30  && Data[1] > 20) {
+    motorDirecction(1, 0, 60);
+  }
+  else if (Data[0] < 15 && Data[1] > 20) {
+    Pot[1] += 1;
+    Pot[0] -= 1;
+  } else if (Data[0] > 20 && Data[1] > 20) {
+    Pot[0] += 1;
+    Pot[1] -= 1;
+  } else {
+    if (flag) {
+      motorDirecction(1, 0, 100);
+      delay(120);
+      flag = !flag;
+    }
+    else {
+      motorDirecction(0, 0, 100);
+      delay(64);
+    }
+    motorDirecction(0, 1, 100);
+    delay(128);
+  }
+  motorDirecction(1, 1, Pot[0], Pot[1]);
+  delay(2);
 }
 /* Batt state */
 void battState() {
@@ -191,11 +211,31 @@ void PID_0(float distance) {
     }
     else
     {
-      motorDirecction(0, 0, map(drive, -5, 0, 90, 0));
+      motorDirecction(0, 0, map(drive, 0, 5, 0, 90));
     }
     actual = distance;
   }
   delay(10);
+}
+void choose() {
+  if (Distancia(1) < 15 ) {
+    if (Distancia(1) < 10) {
+      motorDirecction(0, 0, 80);
+      delay(1024);
+    }
+    motorDirecction(1, 0, 0);
+    int distI = Distancia(0);
+    motorDirecction(1, 0, 80);
+    delay(256);
+    motorDirecction(1, 0, 0);
+    if (Distancia(1) < distI) {
+      motorDirecction(0, 1, 80);
+      delay(512);
+    }
+  } else {
+    motorDirecction(1, 1, 70);
+    delay(8);
+  }
 }
 //--------/  Loop  /--------//
 void loop() {
@@ -213,10 +253,7 @@ void loop() {
       PID_0(Data[1]);
       break;
     case 3:
-      for (int i = 0; i < 20; i++)
-        motorDirecction(1, 1, 100);
-      for (int i = 0; i < 10; i++)
-        PID_0(Data[0]);
+      choose();
       break;
     case 5:
       motorDirecction(0, 0, 100);
@@ -225,10 +262,10 @@ void loop() {
       motorDirecction(1, 1, 100);
       break;
     case 4:
-      motorDirecction(0, 1, Data[Cdatos + 1], Data[Cdatos + 1]);
+      motorDirecction(0, 1, 100, 100);
       break;
     case 6:
-      motorDirecction(1, 0, Data[Cdatos + 1], Data[Cdatos + 1]);
+      motorDirecction(1, 0, 100, 100);
       break;
     default:
       motorsOff();
